@@ -1,53 +1,73 @@
+import argparse
+import os
 from types import MethodType
 
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.animation import FuncAnimation
 
+from constants import (
+    INPUT_COLOR,
+    INPUT_SHAPE,
+    FILTER_COLOR,
+    FILTER_SHAPE,
+    OUTPUT_COLOR,
+    OUTPUT_SHAPE,
+    STRIDE,
+    PADDING,
+    EDGE_COLOR,
+)
 from voxels import voxels
 
 # Set label font size and family
 plt.rcParams["font.size"] = 12
 plt.rcParams["font.family"] = "sans-serif"
 
-# Colors
-ALPHA = 50  # in hex
-INPUT_COLOR = f"#1abc9c{ALPHA}"
-FILTER_COLOR = "#e67e22"
-OUTPUT_COLOR = f"#3498db{ALPHA}"
-EDGE_COLOR = "#2c3e50"
-DARK_MODE = False
+# Parse input arguments
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "--to-pdf",
+    type=bool,
+    action=argparse.BooleanOptionalAction,
+    default=False,
+    help="Save animation as pdfs instead of gif",
+)
+parser.add_argument(
+    "--dark-mode",
+    type=bool,
+    action=argparse.BooleanOptionalAction,
+    default=False,
+    help="Use dark mode",
+)
+args = parser.parse_args()
 
+
+SAVE_AS_PDF = args.to_pdf
+OUTPUT_DIR = "pdfs" if SAVE_AS_PDF else "animations"
+os.makedirs(OUTPUT_DIR, exist_ok=True)
+
+DARK_MODE = args.dark_mode
 if DARK_MODE:
     plt.style.use("dark_background")
 
-# Convolution parameters
-INPUT_SHAPE = (5, 5, 5)
-FILTER_SHAPE = (3, 3, 3)
-
-PADDING = (0, 0, 0)
-STRIDE = (1, 1, 1)
-
-OUTPUT_SHAPE = (
-    ((INPUT_SHAPE[0] - FILTER_SHAPE[0] + 2 * PADDING[0]) // STRIDE[0]) + 1,
-    ((INPUT_SHAPE[1] - FILTER_SHAPE[1] + 2 * PADDING[1]) // STRIDE[1]) + 1,
-    ((INPUT_SHAPE[2] - FILTER_SHAPE[2] + 2 * PADDING[2]) // STRIDE[2]) + 1,
-)
-
-
-# Create figure
+# Create Figure
 fig = plt.figure(figsize=(10, 5))
-# set title
-fig.suptitle(
-    "3D Convolution",
-    fontsize=16,
-    fontweight="bold",
-    fontfamily="serif",
-)
-# add description
-fig.text(
-    0.5, 0.9, f"stride: {STRIDE}, padding: {PADDING}", ha="center", fontfamily="serif"
-)
+if not SAVE_AS_PDF:
+    # set title
+    fig.suptitle(
+        "3D Convolution",
+        fontsize=16,
+        fontweight="bold",
+        fontfamily="serif",
+    )
+    # add description
+    fig.text(
+        0.5,
+        0.9,
+        f"stride: {STRIDE}, padding: {PADDING}",
+        ha="center",
+        fontfamily="serif",
+    )
 fig.tight_layout()
 
 # Create subplot 1
@@ -58,13 +78,14 @@ ax1.voxels = MethodType(voxels, ax1)
 ax2 = fig.add_subplot(122, projection="3d")
 ax2.voxels = MethodType(voxels, ax2)
 
-# add titles to subplots under the plots
-ax1.set_title(
-    f"Input Volume ({'x'.join(map(str, INPUT_SHAPE))})", y=0.95, fontweight="bold"
-)
-ax2.set_title(
-    f"Output Volume ({'x'.join(map(str, OUTPUT_SHAPE))})", y=0.95, fontweight="bold"
-)
+if not SAVE_AS_PDF:
+    # add titles to subplots under the plots
+    ax1.set_title(
+        f"Input Volume ({'x'.join(map(str, INPUT_SHAPE))})", y=0.95, fontweight="bold"
+    )
+    ax2.set_title(
+        f"Output Volume ({'x'.join(map(str, OUTPUT_SHAPE))})", y=0.95, fontweight="bold"
+    )
 
 if DARK_MODE:
     for ax in [ax1, ax2]:
@@ -93,7 +114,8 @@ x, y, z = np.indices(INPUT_SHAPE)
 cube1 = (x < INPUT_SHAPE[0]) & (y < INPUT_SHAPE[1]) & (z < INPUT_SHAPE[2])
 cube2 = (x < OUTPUT_SHAPE[0]) & (y < OUTPUT_SHAPE[1]) & (z < OUTPUT_SHAPE[2])
 
-# create animation
+
+# Create Animation
 def animate(i):
     # change color of cube 1
     colors = np.empty(cube1.shape, dtype=object)
@@ -103,37 +125,60 @@ def animate(i):
 
     x = (i % OUTPUT_SHAPE[0]) * STRIDE[0]
     z = ((i // OUTPUT_SHAPE[0]) % OUTPUT_SHAPE[2]) * STRIDE[2]
-    y = ((i // (OUTPUT_SHAPE[0] * OUTPUT_SHAPE[2])) %
-         OUTPUT_SHAPE[1]) * STRIDE[1]
+    y = ((i // (OUTPUT_SHAPE[0] * OUTPUT_SHAPE[2])) % OUTPUT_SHAPE[1]) * STRIDE[1]
 
     colors[
-        x: FILTER_SHAPE[0] + x, y: FILTER_SHAPE[1] + y, z: FILTER_SHAPE[2] + z
+        x : FILTER_SHAPE[0] + x, y : FILTER_SHAPE[1] + y, z : FILTER_SHAPE[2] + z
     ] = FILTER_COLOR
     colors2[
-        x // STRIDE[0]: 1 + x // STRIDE[0],
-        y // STRIDE[1]: 1 + y // STRIDE[1],
-        z // STRIDE[2]: 1 + z // STRIDE[2],
+        x // STRIDE[0] : 1 + x // STRIDE[0],
+        y // STRIDE[1] : 1 + y // STRIDE[1],
+        z // STRIDE[2] : 1 + z // STRIDE[2],
     ] = FILTER_COLOR
 
     ax1.collections.clear()
     ax2.collections.clear()
 
-    ax1.voxels(cube1, facecolors=colors, edgecolors=EDGE_COLOR,
-               internal_faces=True, animated=True)
-    ax2.voxels(cube2, facecolors=colors2, edgecolors=EDGE_COLOR,
-               internal_faces=True, animated=True)
+    ax1.voxels(
+        cube1,
+        facecolors=colors,
+        edgecolors=EDGE_COLOR,
+        internal_faces=True,
+        animated=True,
+    )
+    ax2.voxels(
+        cube2,
+        facecolors=colors2,
+        edgecolors=EDGE_COLOR,
+        internal_faces=True,
+        animated=True,
+    )
 
     # return the artists set
-    return fig,
+    return (fig,)
 
 
-anim = FuncAnimation(
-    fig,
-    animate,
-    frames=OUTPUT_SHAPE[0] * OUTPUT_SHAPE[1] * OUTPUT_SHAPE[2],
-    # frames=16,
-    interval=200,
-    blit=True,
-)
-anim.save(f"animations/3d_convolution{'_dark' if DARK_MODE else ''}.gif",
-          writer="ffmpeg", dpi=200, fps=4)
+if SAVE_AS_PDF:
+    frames = range(OUTPUT_SHAPE[0] * OUTPUT_SHAPE[1] * OUTPUT_SHAPE[2])
+    for frame in frames:
+        (fig,) = animate(frame)
+        fig.savefig(f"{OUTPUT_DIR}/3d_conv_{str(frame).zfill(2)}.pdf")
+
+    from crop import crop_pdfs
+
+    crop_pdfs(OUTPUT_DIR)
+else:
+    anim = FuncAnimation(
+        fig,
+        animate,
+        frames=OUTPUT_SHAPE[0] * OUTPUT_SHAPE[1] * OUTPUT_SHAPE[2],
+        # frames=16,
+        interval=200,
+        blit=True,
+    )
+    anim.save(
+        f"animations/3d_convolution{'_dark' if DARK_MODE else ''}.gif",
+        writer="ffmpeg",
+        dpi=200,
+        fps=4,
+    )
